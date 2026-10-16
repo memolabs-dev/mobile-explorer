@@ -1,0 +1,86 @@
+import Foundation
+import AppKit
+import Combine
+
+@MainActor
+final class ExplorerModel: ObservableObject {
+    @Published var devices: [ConnectedDevice] = []
+    @Published var selectedDeviceID: ConnectedDevice.ID?
+    @Published var applications: [InstalledApplication] = []
+    @Published var selectedApplicationID: InstalledApplication.ID?
+    @Published var observations: [Observation] = []
+    @Published var notes = ""
+    @Published var isBusy = false
+    @Published var statusMessage = "Connectez un iPhone déverrouillé pour commencer."
+    @Published var errorMessage: String?
+
+    var selectedDevice: ConnectedDevice? { devices.first(where: { $0.id == selectedDeviceID }) }
+    var selectedApplication: InstalledApplication? { applications.first(where: { $0.id == selectedApplicationID }) }
+
+    func refreshDevices() {
+        isBusy = true
+        errorMessage = nil
+        Task {
+            let result = await Task.detached(priority: .userInitiated) { () -> Result<[ConnectedDevice], Error> in
+                do { return .success(try DeviceScanner().listDevices()) }
+                catch { return .failure(error) }
+            }.value
+            isBusy = false
+            switch result {
+            case .success(let data):
+                devices = data
+                if let selectedDeviceID, !data.contains(where: { $0.id == selectedDeviceID }) {
+                    self.selectedDeviceID = nil; applications = []; selectedApplicationID = nil
+                }
+                statusMessage = data.isEmpty ? "Aucun iPhone trouvé. Vérifiez le câble, la confiance et Xcode." : "\(data.count) iPhone(s) détecté(s)."
+            case .failure(let error): errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func scanApplications() {
+        guard let device = selectedDevice else { errorMessage = ExplorerError.noDevice.localizedDescription; return }
+        guard !isBusy else { return }
+        isBusy = true
+        errorMessage = nil
+        statusMessage = "Lecture du catalogue local, sans extraction des binaires…"
+        Task {
+            let result = await Task.detached(priority: .userInitiated) { () -> Result<[InstalledApplication], Error> in
+                do { return .success(try ApplicationScanner().listApplications(on: device)) }
+                catch { return .failure(error) }
+            }.value
+            isBusy = false
+            switch result {
+            case .success(let apps):
+                applications = apps
+                selectedApplicationID = nil
+                statusMessage = "\(apps.count) applications listées. Sélectionnez une application autorisée."
+            case .failure(let error): errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func selectApplication(_ id: String) {
+        selectedApplicationID = id
+        observations = []
+        notes = ""
+    }
+
+    func addObservation() { observations.append(Observation()) }
+
+    func exportReport() {
+        guard let app = selectedApplication else { return }
+        let panel = NSSavePanel()
+        panel.title = "Exporter une fiche d'observation"
+        panel.message = "Vérifiez que vos notes ne contiennent pas de données personnelles ou de secrets."
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "\(app.id.replacingOccurrences(of: ".", with: "-"))-observation.md"
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                let result = AppSpecExporter.markdown(for: app, observations: observations, generalNotes: notes)
+                try result.write(to: url, atomically: true, encoding: .utf8)
+                statusMessage = "Rapport sauvegardé localement."
+            } catch { errorMessage = error.localizedDescription }
+        }
+    }
+}
