@@ -49,3 +49,7 @@ Licence : [MIT](LICENSE) © 2026 Memo Labs.
 ## Fiche manuelle sans appareil
 
 Si un iPhone ne peut pas être inventorié, une application dont vous êtes autorisé à documenter les parcours peut être saisie par son nom. Cette fiche est explicitement marquée comme saisie manuelle, sans bundle ID inventé ni prétention à la compatibilité. Le rapport Markdown demeure local.
+
+## Export structuré expérimental
+
+Chaque parcours observé peut être exporté localement comme une ligne JSON indépendante correspondant au contrat observation-v0.1. La preuve reste de type manual-observation avec le statut unknown : elle ne constitue pas une vérification indépendante des capacités. Aucun identifiant de téléphone ni donnée d’appareil n’est collecté par cet export. Les notes personnelles saisies doivent être relues avant tout partage. L’import Radar n’est pas encore opérationnel.

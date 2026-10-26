@@ -40,8 +40,11 @@ final class ExplorerModel: ObservableObject {
                 }
                 statusMessage = data.isEmpty ? "Aucun iPhone trouvé. Vérifiez le câble, la confiance et Xcode." : "\(data.count) iPhone(s) détecté(s)."
             case .failure(let error):
-                devices = []; selectedDeviceID = nil; applications = []; selectedApplicationID = nil
-                observations = []; notes = ""
+                let keepManual = selectedApplication?.origin == "Saisie manuelle"
+                devices = []; selectedDeviceID = nil; applications = []
+                if !keepManual {
+                    selectedApplicationID = nil; observations = []; notes = ""
+                }
                 errorMessage = error.localizedDescription
             }
         }
@@ -101,6 +104,26 @@ final class ExplorerModel: ObservableObject {
     }
 
     func addObservation() { observations.append(Observation()) }
+
+    func exportJSONLines() {
+        guard let app = selectedApplication else { return }
+        guard !observations.isEmpty else {
+            errorMessage = "Ajoutez au moins un parcours à exporter."
+            return
+        }
+        let panel = NSSavePanel()
+        panel.title = "Exporter les observations JSON Lines"
+        panel.message = "Vérifiez les notes : elles ne sont pas anonymisées automatiquement."
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "mobile-explorer-evidence.jsonl"
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                let data = try AppSpecExporter.jsonLines(for: app, observations: observations, generalNotes: notes)
+                try data.write(to: url, atomically: true, encoding: .utf8)
+                statusMessage = "Observations JSON Lines exportées localement (non vérifiées)."
+            } catch { errorMessage = error.localizedDescription }
+        }
+    }
 
     func exportReport() {
         guard let app = selectedApplication else { return }
