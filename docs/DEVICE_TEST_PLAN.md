@@ -28,3 +28,13 @@
 N'enregistrer dans l'issue que : version macOS/Xcode, version iOS **sans identifiant d'appareil**, étapes, résultat obtenu, types d'erreurs avec identifiants masqués, statut réussi/échoué. Les notes contenant des secrets doivent être nettoyées avant tout partage.
 
 Cette recette est à exécuter manuellement. Les tests d'intégration USB et d'applications tierces autorisées ne sont **pas** couverts par la CI Swift.
+
+## Test physique reproductible (opt-in)
+
+Sur un Mac avec Xcode, brancher un iPhone autorisé et appairé via USB, puis lancer python3 scripts/test-authorized-iphone.py depuis la racine du dépôt.
+
+Le script sélectionne exactement un iPhone physique jumelé par USB, passe son identifiant uniquement à un XCTest local, puis vérifie le véritable DeviceScanner et ApplicationScanner. Seul le **nombre** des entrées interprétées est affiché. Aucun nom d'app, identifiant de bundle ou UDID n'est volontairement journalisé ; aucun fichier privé d'application n'est lu.
+
+Sur un appareil autorisé le 26 octobre 2026, ce test a réussi : 156 métadonnées d'applications avec la commande --include-default-apps. Un essai antérieur sans cette option n'avait renvoyé que 3 entrées. Il s'agit d'une observation ponctuelle, pas d'une garantie d'exhaustivité.
+
+Les tests CI sans appareil ne lancent pas le parcours USB et marquent le XCTest comme ignoré. La recette de la fenêtre SwiftUI et de la reprise des brouillons reste à faire séparément.
