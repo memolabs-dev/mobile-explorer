@@ -38,3 +38,10 @@ Le script sélectionne exactement un iPhone physique jumelé par USB, passe son 
 Sur un appareil autorisé le 26 octobre 2026, ce test a réussi : 156 métadonnées d'applications avec la commande --include-default-apps. Un essai antérieur sans cette option n'avait renvoyé que 3 entrées. Il s'agit d'une observation ponctuelle, pas d'une garantie d'exhaustivité.
 
 Les tests CI sans appareil ne lancent pas le parcours USB et marquent le XCTest comme ignoré. La recette de la fenêtre SwiftUI et de la reprise des brouillons reste à faire séparément.
+
+## Recette graphique de lancement/accessibilité (opt-in)
+
+Sur Mac avec System Events autorisé : python3 scripts/test-macos-gui.py --allow-gui.
+Le script compile une copie jetable du package Swift, ouvre une fenêtre temporaire et vérifie quatre identifiants d'accessibilité : création d'une fiche manuelle, saisie de son nom, reprise d'un brouillon et lecture de la liste des applications. Il ferme le test, efface les fichiers temporaires et restaure l'application précédemment au premier plan. Aucun identifiant d'appareil ni note utilisateur n'est relevé. La confirmation --allow-gui est obligatoire parce que la fenêtre est visible.
+
+Cette recette graphique valide uniquement le lancement et la disponibilité des commandes, pas encore l'écriture/relecture dans les dialogues natifs ou les interactions complètes avec l'iPhone.
