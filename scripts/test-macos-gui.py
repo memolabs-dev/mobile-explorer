@@ -16,6 +16,8 @@ def osa(script):
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--allow-gui",action="store_true")
+    parser.add_argument("--native-roundtrip",action="store_true",
+                        help="synthetic native Save/Open acceptance in temporary app")
     args=parser.parse_args()
     if not args.allow_gui:
         parser.error("Explicit --allow-gui required: a test app briefly opens on screen")
@@ -30,6 +32,19 @@ def main():
         shutil.copy2(repo/"Package.swift",tmp/"Package.swift")
         shutil.copytree(repo/"Sources",tmp/"Sources")
         shutil.copytree(repo/"Tests",tmp/"Tests")
+        if args.native_roundtrip:
+            # The production model remains unchanged; only scratch DEBUG
+            # source has a test-specific initial directory for panels.
+            source=tmp/"Sources"/"MobileExplorer"/"ExplorerModel.swift"
+            body=source.read_text()
+            additional='        #if DEBUG\n        if let dir = ProcessInfo.processInfo.environment["ME_GUI_SCRATCH"] {\n            panel.directoryURL = URL(fileURLWithPath: dir, isDirectory: true)\n        }\n        #endif\n'
+            for anchor in ['        panel.nameFieldStringValue = "mobile-explorer-draft.json"',
+                           '        panel.allowsMultipleSelection = false']:
+                if body.count(anchor)!=1:
+                    print("NATIVE_FAIL: model panel source changed",file=sys.stderr)
+                    return 1
+                body=body.replace(anchor,additional+anchor)
+            source.write_text(body)
         build=subprocess.run(["swift","build","-j","2"],cwd=tmp,capture_output=True,text=True,timeout=220)
         if build.returncode!=0:
             print("GUI_BUILD_FAIL: temporary Swift package failed to build",file=sys.stderr)
@@ -45,8 +60,11 @@ def main():
             "CFBundlePackageType":"APPL"
         }))
         try:
-            opened=subprocess.run(["/usr/bin/open","-n",str(d.parent.parent)],
-                                  capture_output=True,text=True,timeout=18)
+            start=["/usr/bin/open","-n"]
+            if args.native_roundtrip:
+                start.extend(["--env","ME_GUI_SCRATCH="+str(tmp)])
+            start.append(str(d.parent.parent))
+            opened=subprocess.run(start,capture_output=True,text=True,timeout=18)
             if opened.returncode:
                 print("GUI_SMOKE_FAIL: launch failed",file=sys.stderr)
                 return 1
@@ -139,6 +157,102 @@ def main():
                 print("GUI_ADD_FAIL: observation fields were not available",file=sys.stderr)
                 return 1
             print("GUI_ADD_PASS: new observation with four editable fields")
+            if not args.native_roundtrip:
+                return 0
+            def locate(parent,key):
+                for i in range(1,10):
+                    c=osa('tell application "System Events" to tell process "'+NAME+
+                        '" to get value of attribute "AXIdentifier" of button '+str(i)+' '+parent)
+                    if c.returncode==0 and c.stdout.strip()==key:return i
+                return None
+            # Dismiss auxiliary post-create AXDialog before opening Save.
+            osa('tell application "'+NAME+'" to activate')
+            osa('tell application "System Events" to tell process "'+NAME+'" to key code 53')
+            time.sleep(.3)
+            save_idx=locate(right,"draft.save")
+            if save_idx is None:
+                print("NATIVE_SAVE_FAIL: missing Save button",file=sys.stderr)
+                return 1
+            q=osa('tell application "System Events" to tell process "'+NAME+
+                '" to click button '+str(save_idx)+' '+right)
+            visible=False
+            for _ in range(22):
+                c=osa('tell application "System Events" to tell process "'+NAME+
+                    '" to get entire contents of window 1')
+                if c.returncode==0 and "Save As" in c.stdout:
+                    visible=True
+                    break
+                time.sleep(.25)
+            if q.returncode or not visible:
+                print("NATIVE_SAVE_FAIL: Save As dialog not confirmed",file=sys.stderr)
+                return 1
+            osa('tell application "'+NAME+'" to activate')
+            enter=osa('tell application "System Events" to tell process "'+NAME+'" to key code 36')
+            draft=tmp/"mobile-explorer-draft.json"
+            until=time.monotonic()+10
+            while time.monotonic()<until and not draft.is_file():time.sleep(.35)
+            if enter.returncode or not draft.is_file():
+                print("NATIVE_SAVE_FAIL: draft not written into test directory",file=sys.stderr)
+                return 1
+            from stat import S_IMODE
+            try:body=json.loads(draft.read_text())
+            except (ValueError,OSError):
+                print("NATIVE_SAVE_FAIL: draft content unreadable",file=sys.stderr)
+                return 1
+            if (body.get("schemaVersion")!="1"
+                or body.get("applicationName")!="Synthetic GUI Fixture"
+                or len(body.get("steps",[]))!=1
+                or S_IMODE(draft.stat().st_mode)!=0o600):
+                print("NATIVE_SAVE_FAIL: file structure or mode incorrect",file=sys.stderr)
+                return 1
+            print("NATIVE_SAVE_PASS: NSSavePanel wrote a private JSON draft")
+            osa('tell application "System Events" to tell process "'+NAME+'" to quit')
+            subprocess.run(["/usr/bin/pkill","-f",str(binary)],
+                           capture_output=True,text=True,timeout=10)
+            restart=subprocess.run(start,capture_output=True,text=True,timeout=20)
+            if restart.returncode:
+                print("NATIVE_OPEN_FAIL: fresh app not launched",file=sys.stderr)
+                return 1
+            open_idx=None
+            until=time.monotonic()+15
+            while time.monotonic()<until and open_idx is None:
+                open_idx=locate(sidebar,"draft.open")
+                if open_idx is None:time.sleep(.55)
+            if open_idx is None:
+                print("NATIVE_OPEN_FAIL: missing Open button",file=sys.stderr)
+                return 1
+            action=osa('tell application "System Events" to tell process "'+NAME+
+                '" to click button '+str(open_idx)+' '+sidebar)
+            time.sleep(.75)
+            kind=osa('tell application "System Events" to tell process "'+NAME+
+                '" to get subrole of window 1')
+            if action.returncode or kind.stdout.strip()!="AXDialog":
+                print("NATIVE_OPEN_FAIL: Open panel not confirmed",file=sys.stderr)
+                return 1
+            picked=osa('tell application "System Events" to tell process "'+NAME+
+                '" to keystroke "mobile-explorer-draft.json"')
+            time.sleep(.45)
+            accept=osa('tell application "System Events" to tell process "'+NAME+'" to key code 36')
+            if picked.returncode or accept.returncode:
+                print("NATIVE_OPEN_FAIL: selection keystrokes failed",file=sys.stderr)
+                return 1
+            until=time.monotonic()+12
+            okay=False
+            while time.monotonic()<until:
+                contents=osa('tell application "System Events" to tell process "'+NAME+
+                    '" to get entire contents of scroll area 1 of group 2 of splitter group 1 of group 1 of '+win)
+                if contents.returncode==0 and "Synthetic GUI Fixture" in contents.stdout:
+                    n=osa('tell application "System Events" to tell process "'+NAME+
+                        '" to get count of text fields '+right)
+                    try:okay=n.returncode==0 and int(n.stdout.strip())>=4
+                    except ValueError:okay=False
+                    if okay:break
+                time.sleep(.55)
+            if not okay:
+                print("NATIVE_OPEN_FAIL: saved workspace not restored in fresh process",file=sys.stderr)
+                return 1
+            print("NATIVE_OPEN_PASS: NSOpenPanel restored editable observation in fresh process")
+            print("GUI_NATIVE_ROUNDTRIP_PASS: create, Save, restart, Open")
             return 0
         finally:
             osa('tell application "System Events" to tell process "'+NAME+'" to quit')

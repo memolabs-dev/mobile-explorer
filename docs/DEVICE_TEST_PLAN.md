@@ -45,3 +45,22 @@ Sur Mac avec System Events autorisé : python3 scripts/test-macos-gui.py --allow
 Le script compile une copie jetable du package Swift, ouvre une fenêtre temporaire et vérifie quatre identifiants d'accessibilité : création d'une fiche manuelle, saisie de son nom, reprise d'un brouillon et lecture de la liste des applications. Il ferme le test, efface les fichiers temporaires et restaure l'application précédemment au premier plan. Aucun identifiant d'appareil ni note utilisateur n'est relevé. La confirmation --allow-gui est obligatoire parce que la fenêtre est visible.
 
 Cette recette graphique valide uniquement le lancement et la disponibilité des commandes, pas encore l'écriture/relecture dans les dialogues natifs ou les interactions complètes avec l'iPhone.
+
+
+## Real native Save/Open GUI test (opt-in)
+
+Run: python3 scripts/test-macos-gui.py --allow-gui --native-roundtrip
+
+The harness builds a disposable app copy and adds a DEBUG-only directory
+override to that copy, setting the native NSSavePanel / NSOpenPanel initial
+folder to a temporary test directory. Production source remains unchanged.
+
+It uses SwiftUI to create a synthetic manual app and observation, checks a
+private JSON draft was written by NSSavePanel, kills the test process, then
+opens the file via NSOpenPanel in a fresh process and verifies its editable
+fields are visible. The temporary directory and app are deleted and user
+focus is restored. No user files or iPhone app content are accessed.
+
+Text field serialization is separately covered by ExplorerDraftRoundTripTests
+because setting a SwiftUI field's AXValue does not necessarily synthesize
+real keyboard input. This test cannot run in headless CI.
