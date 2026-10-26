@@ -21,3 +21,9 @@ Les exports réutilisent le même mécanisme que les brouillons : création d'un
 ## Prévention des pertes accidentelles
 
 Si la fiche active contient des notes ou des parcours, changer d'application, créer une autre fiche, lire une nouvelle liste d'applications ou ouvrir un autre brouillon demande une confirmation explicite. **Annuler** conserve les informations en mémoire. Recliquer sur la même application ne supprime plus les notes. En cas de disparition de l'iPhone lors d'une actualisation, les observations déjà saisies restent disponibles pour sauvegarde ou export.
+
+## Recette automatisée du cycle de données
+
+Les tests ExplorerDraftRoundTripTests utilisent le vrai ExplorerModel, ManualDraftCodec et ManualDraftStorage : saisie simulée, écriture privée sur disque, nouvelle instance de modèle, restauration des champs puis export JSONL. Ils vérifient aussi qu'un fichier invalide ne remplace pas les observations et qu'une navigation annulée préserve le travail restauré.
+
+Ce test d'intégration ne simule pas un clic dans NSSavePanel ou NSOpenPanel. Les boîtes de dialogue natifs restent à valider dans une recette graphique dédiée.

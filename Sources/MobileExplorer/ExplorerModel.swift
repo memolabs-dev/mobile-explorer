@@ -171,6 +171,33 @@ final class ExplorerModel: ObservableObject {
 
     func addObservation() { observations.append(Observation()) }
 
+    /// Purely local data operation used by the Save panel and integration tests.
+    /// No file chooser, network request, or automatic persistence.
+    func persistManualDraft(to url: URL) throws {
+        guard let app = selectedApplication, app.origin == "Saisie manuelle" else {
+            throw ExplorerError.invalidData("Seules les fiches manuelles peuvent devenir des brouillons.")
+        }
+        let data = try ManualDraftCodec.encode(app: app, observations: observations, notes: notes)
+        try ManualDraftStorage.save(data, to: url)
+    }
+
+    /// Restore only after successful decode/validation. On error the in-memory work
+    /// remains unchanged and can still be saved/exported by its user.
+    func restoreManualDraft(from url: URL) throws {
+        let draft = try ManualDraftStorage.load(from: url)
+        let restored = InstalledApplication(
+            id: "manual-" + UUID().uuidString,
+            name: draft.applicationName,
+            version: "inconnue",
+            origin: "Saisie manuelle"
+        )
+        manualAppName = draft.applicationName
+        manualApplication = restored
+        selectedApplicationID = restored.id
+        observations = ManualDraftCodec.restoredObservations(draft)
+        notes = draft.generalNotes
+    }
+
     func saveManualDraft() {
         guard let app = selectedApplication, app.origin == "Saisie manuelle" else {
             errorMessage = "Sélectionnez une fiche manuelle pour sauvegarder un brouillon."
@@ -183,8 +210,7 @@ final class ExplorerModel: ObservableObject {
         panel.canCreateDirectories = true
         if panel.runModal() == .OK, let url = panel.url {
             do {
-                let data = try ManualDraftCodec.encode(app: app, observations: observations, notes: notes)
-                try ManualDraftStorage.save(data, to: url)
+                try persistManualDraft(to: url)
                 statusMessage = "Brouillon enregistré localement. Gardez ce fichier privé."
                 errorMessage = nil
             } catch {
@@ -206,13 +232,7 @@ final class ExplorerModel: ObservableObject {
         panel.canChooseDirectories = false
         if panel.runModal() == .OK, let url = panel.url {
             do {
-                let draft = try ManualDraftStorage.load(from: url)
-                let restored = InstalledApplication(id: "manual-" + UUID().uuidString, name: draft.applicationName, version: "inconnue", origin: "Saisie manuelle")
-                manualAppName = draft.applicationName
-                manualApplication = restored
-                selectedApplicationID = restored.id
-                observations = ManualDraftCodec.restoredObservations(draft)
-                notes = draft.generalNotes
+                try restoreManualDraft(from: url)
                 errorMessage = nil
                 statusMessage = "Brouillon repris localement : observations manuelles non vérifiées."
             } catch {
