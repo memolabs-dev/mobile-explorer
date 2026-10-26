@@ -5,16 +5,17 @@ struct AppSpecExporter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withFullDate]
         let dateText = formatter.string(from: date)
+        let bundleDisplay = app.origin == "Saisie manuelle" ? "non renseigné" : app.id
         func safe(_ value: String) -> String { value.replacingOccurrences(of: "\r", with: " ").trimmingCharacters(in: .whitespacesAndNewlines) }
         var lines = [
             "# Fiche d'observation — \(safe(app.name))",
             "",
             "- Application : \(safe(app.name))",
-            "- Bundle ID : `\(safe(app.id))`",
+            "- Bundle ID : `\(safe(bundleDisplay))`",
             "- Version observée : \(safe(app.version))",
             "- Date : \(dateText)",
             "- Niveau de preuve : **observation manuelle**, non audit logiciel",
-            "- Provenance : inventaire local d'un appareil autorisé",
+            "- Provenance : \(app.origin == "Saisie manuelle" ? "saisie manuelle, sans inventaire" : "inventaire local d'un appareil autorisé")",
             "",
             "> Ce document ne contient ni code source, ni données privées, ni preuve de compatibilité complète.",
             "",
