@@ -12,4 +12,11 @@ final class SpecExporterTests: XCTestCase {
         XCTAssertTrue(result.contains("Les parcours non visités"))
         XCTAssertFalse(result.contains("reverse déchiffré"))
     }
+    func testManualAppDoesNotInventBundleIdentifierOrDeviceInventory() {
+        let app = InstalledApplication(id: "manual-fake-123", name: "Test", version: "inconnue", origin: "Saisie manuelle")
+        let report = AppSpecExporter.markdown(for: app, observations: [], generalNotes: "")
+        XCTAssertTrue(report.contains("non renseigné"))
+        XCTAssertTrue(report.contains("saisie manuelle, sans inventaire"))
+        XCTAssertFalse(report.contains("manual-fake-123"))
+    }
 }

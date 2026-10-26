@@ -10,12 +10,17 @@ final class ExplorerModel: ObservableObject {
     @Published var selectedApplicationID: InstalledApplication.ID?
     @Published var observations: [Observation] = []
     @Published var notes = ""
+    @Published var manualAppName = ""
+    @Published var manualApplication: InstalledApplication?
     @Published var isBusy = false
     @Published var statusMessage = "Connectez un iPhone déverrouillé pour commencer."
     @Published var errorMessage: String?
 
     var selectedDevice: ConnectedDevice? { devices.first(where: { $0.id == selectedDeviceID }) }
-    var selectedApplication: InstalledApplication? { applications.first(where: { $0.id == selectedApplicationID }) }
+    var selectedApplication: InstalledApplication? {
+        if manualApplication?.id == selectedApplicationID { return manualApplication }
+        return applications.first(where: { $0.id == selectedApplicationID })
+    }
 
     func refreshDevices() {
         isBusy = true
@@ -79,6 +84,20 @@ final class ExplorerModel: ObservableObject {
         selectedApplicationID = id
         observations = []
         notes = ""
+    }
+
+    func createManualApp() {
+        let name = manualAppName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty && name.count <= 120 else {
+            errorMessage = "Saisissez un nom valide (120 caractères maximum)."
+            return
+        }
+        let app = InstalledApplication(id: "manual-" + UUID().uuidString, name: name, version: "inconnue", origin: "Saisie manuelle")
+        manualApplication = app
+        selectedApplicationID = app.id
+        observations = []; notes = ""
+        errorMessage = nil
+        statusMessage = "Fiche manuelle créée. Le logiciel n'a pas été inventorié par CoreDevice."
     }
 
     func addObservation() { observations.append(Observation()) }

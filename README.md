@@ -45,3 +45,7 @@ Le contrat `contracts/observation-v0.1.schema.json` est **préparatoire** : l'ex
 Pour proposer une PR : expliquer le scénario iOS, les permissions, l'outillage, la méthode de reproduction et les tests. Ne jamais publier de journaux contenant des UDID, données utilisateur, cookies, tokens ou captures privées.
 
 Licence : [MIT](LICENSE) © 2026 Memo Labs.
+
+## Fiche manuelle sans appareil
+
+Si un iPhone ne peut pas être inventorié, une application dont vous êtes autorisé à documenter les parcours peut être saisie par son nom. Cette fiche est explicitement marquée comme saisie manuelle, sans bundle ID inventé ni prétention à la compatibilité. Le rapport Markdown demeure local.

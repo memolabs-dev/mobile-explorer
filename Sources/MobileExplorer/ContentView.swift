@@ -56,6 +56,19 @@ struct ContentView: View {
                 .buttonStyle(.borderedProminent).tint(Design.ink)
                 .disabled(model.selectedDevice == nil || model.isBusy)
                 .padding(.horizontal, 14).padding(.bottom, 12)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("FICHE SANS IPHONE").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                    TextField("Application autorisée", text: $model.manualAppName)
+                    Button { model.createManualApp() } label: {
+                        Label("Créer une fiche manuelle", systemImage: "square.and.pencil")
+                    }
+                    .disabled(model.manualAppName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if let app = model.manualApplication {
+                        Button { model.selectApplication(app.id) } label: {
+                            Text(app.name + " · saisie manuelle")
+                        }.buttonStyle(.borderless)
+                    }
+                }.textFieldStyle(.roundedBorder).padding(.horizontal, 14).padding(.bottom, 12)
                 List(model.applications, selection: $model.selectedApplicationID) { app in
                     Button { model.selectApplication(app.id) } label: {
                         HStack(spacing: 10) {
@@ -116,7 +129,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Comprendre une app,\nsans son code source.")
                 .font(.system(size: 46, weight: .bold)).tracking(-2.3)
-            Text("Connectez votre iPhone et sélectionnez une application que vous êtes autorisé à étudier. Mobile Explorer établit un inventaire et vous aide à documenter vos observations.")
+            Text("Connectez un iPhone ou créez une fiche manuelle pour documenter une application autorisée, même sans inventaire disponible.")
                 .font(.system(size: 15)).foregroundStyle(.secondary).lineSpacing(6).frame(maxWidth: 560, alignment: .leading)
             HStack(spacing: 14) {
                 capability("01", "Appareil détecté")
