@@ -70,6 +70,75 @@ def main():
                 print("GUI_SMOKE_FAIL: expected accessible controls missing",file=sys.stderr)
                 return 1
             print("GUI_SMOKE_PASS: native app window with four stable controls, no user data read")
+            # The main window can temporarily move from window 1 when macOS
+            # displays an auxiliary input popover. Always target it by name.
+            win='window "'+NAME+'"'
+            sidebar="of group 1 of splitter group 1 of group 1 of "+win
+            value=osa('tell application "System Events" to tell process "'+NAME+
+                '" to set value of text field 1 '+sidebar+' to "Synthetic GUI Fixture"')
+            if value.returncode!=0:
+                print("GUI_CREATE_FAIL: unable to enter synthetic app name",file=sys.stderr)
+                return 1
+            create_index=None
+            for i in range(1,10):
+                button=osa('tell application "System Events" to tell process "'+NAME+
+                    '" to get value of attribute "AXIdentifier" of button '+str(i)+' '+sidebar)
+                if button.returncode==0 and button.stdout.strip()=="manual.create":
+                    create_index=i
+                    break
+            if create_index is None:
+                print("GUI_CREATE_FAIL: create action missing",file=sys.stderr)
+                return 1
+            clicked=osa('tell application "System Events" to tell process "'+NAME+
+                '" to click button '+str(create_index)+' '+sidebar)
+            if clicked.returncode!=0:
+                print("GUI_CREATE_FAIL: create action rejected",file=sys.stderr)
+                return 1
+            osa('tell application "'+NAME+'" to activate')
+            osa('tell application "System Events" to tell process "'+NAME+'" to key code 53')
+            right="of scroll area 1 of group 2 of splitter group 1 of group 1 of "+win
+            workspace=False
+            stop=time.monotonic()+13
+            while time.monotonic()<stop:
+                text=osa('tell application "System Events" to tell process "'+NAME+
+                    '" to get entire contents of scroll area 1 of group 2 of splitter group 1 of group 1 of '+win)
+                if text.returncode==0 and "FICHE D'OBSERVATION" in text.stdout and "Synthetic GUI Fixture" in text.stdout:
+                    workspace=True
+                    break
+                time.sleep(.7)
+            if not workspace:
+                print("GUI_CREATE_FAIL: no observation workspace after create",file=sys.stderr)
+                return 1
+            print("GUI_CREATE_PASS: synthetic manual app visible in real SwiftUI workspace")
+            add_index=None
+            for i in range(1,8):
+                control=osa('tell application "System Events" to tell process "'+NAME+
+                    '" to get value of attribute "AXIdentifier" of button '+str(i)+' '+right)
+                if control.returncode==0 and control.stdout.strip()=="observation.add":
+                    add_index=i
+                    break
+            if add_index is None:
+                print("GUI_ADD_FAIL: add observation button unavailable",file=sys.stderr)
+                return 1
+            add=osa('tell application "System Events" to tell process "'+NAME+
+                '" to click button '+str(add_index)+' '+right)
+            if add.returncode!=0:
+                print("GUI_ADD_FAIL: click was rejected",file=sys.stderr)
+                return 1
+            stop=time.monotonic()+9
+            fields=0
+            while time.monotonic()<stop:
+                res=osa('tell application "System Events" to tell process "'+NAME+
+                    '" to get count of text fields '+right)
+                if res.returncode==0:
+                    try: fields=int(res.stdout.strip())
+                    except ValueError: fields=0
+                if fields>=4:break
+                time.sleep(.5)
+            if fields<4:
+                print("GUI_ADD_FAIL: observation fields were not available",file=sys.stderr)
+                return 1
+            print("GUI_ADD_PASS: new observation with four editable fields")
             return 0
         finally:
             osa('tell application "System Events" to tell process "'+NAME+'" to quit')
