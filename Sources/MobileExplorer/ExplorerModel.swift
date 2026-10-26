@@ -16,6 +16,67 @@ final class ExplorerModel: ObservableObject {
     @Published var statusMessage = "Connectez un iPhone déverrouillé pour commencer."
     @Published var errorMessage: String?
 
+    enum PendingNavigation: Equatable {
+        case application(String)
+        case device(String)
+        case manualApp(String)
+        case applicationScan
+        case openDraft
+    }
+
+    @Published var pendingNavigation: PendingNavigation?
+
+    var hasEnteredObservations: Bool {
+        !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !observations.isEmpty
+    }
+
+    private func request(_ action: PendingNavigation) {
+        if hasEnteredObservations {
+            pendingNavigation = action
+        } else {
+            perform(action)
+        }
+    }
+
+    func cancelPendingNavigation() {
+        pendingNavigation = nil
+    }
+
+    func discardAndContinue() {
+        guard let action = pendingNavigation else { return }
+        pendingNavigation = nil
+        perform(action)
+    }
+
+    private func perform(_ action: PendingNavigation) {
+        switch action {
+        case .application(let id):
+            selectedApplicationID = id
+            observations = []
+            notes = ""
+        case .device(let id):
+            selectedDeviceID = id
+            applications = []
+            selectedApplicationID = nil
+            observations = []
+            notes = ""
+            errorMessage = nil
+            statusMessage = "Appareil sélectionné. La lecture des apps nécessite un accès CoreDevice actif."
+        case .manualApp(let name):
+            let app = InstalledApplication(id: "manual-" + UUID().uuidString, name: name, version: "inconnue", origin: "Saisie manuelle")
+            manualApplication = app
+            selectedApplicationID = app.id
+            observations = []
+            notes = ""
+            errorMessage = nil
+            statusMessage = "Fiche manuelle créée. Le logiciel n'a pas été inventorié par CoreDevice."
+        case .applicationScan:
+            startApplicationScan()
+        case .openDraft:
+            presentOpenDraftPanel()
+        }
+    }
+
     var selectedDevice: ConnectedDevice? { devices.first(where: { $0.id == selectedDeviceID }) }
     var selectedApplication: InstalledApplication? {
         if manualApplication?.id == selectedApplicationID { return manualApplication }
@@ -34,16 +95,22 @@ final class ExplorerModel: ObservableObject {
             switch result {
             case .success(let data):
                 devices = data
-                if let selectedDeviceID, !data.contains(where: { $0.id == selectedDeviceID }) {
-                    self.selectedDeviceID = nil; applications = []; selectedApplicationID = nil
-                    observations = []; notes = ""
+                let disconnected = selectedDeviceID != nil && !data.contains(where: { $0.id == selectedDeviceID })
+                if disconnected {
+                    self.selectedDeviceID = nil
+                    if !hasEnteredObservations && selectedApplication?.origin != "Saisie manuelle" {
+                        applications = []; selectedApplicationID = nil
+                        observations = []; notes = ""
+                    }
                 }
-                statusMessage = data.isEmpty ? "Aucun iPhone trouvé. Vérifiez le câble, la confiance et Xcode." : "\(data.count) iPhone(s) détecté(s)."
+                statusMessage = disconnected && hasEnteredObservations
+                    ? "iPhone déconnecté : les observations restent éditables et exportables."
+                    : (data.isEmpty ? "Aucun iPhone trouvé. Vérifiez le câble, la confiance et Xcode." : "\(data.count) iPhone(s) détecté(s).")
             case .failure(let error):
-                let keepManual = selectedApplication?.origin == "Saisie manuelle"
-                devices = []; selectedDeviceID = nil; applications = []
-                if !keepManual {
-                    selectedApplicationID = nil; observations = []; notes = ""
+                let keepNotes = hasEnteredObservations || selectedApplication?.origin == "Saisie manuelle"
+                devices = []; selectedDeviceID = nil
+                if !keepNotes {
+                    applications = []; selectedApplicationID = nil; observations = []; notes = ""
                 }
                 errorMessage = error.localizedDescription
             }
@@ -51,17 +118,21 @@ final class ExplorerModel: ObservableObject {
     }
 
     func selectDevice(_ id: ConnectedDevice.ID) {
-        guard devices.contains(where: { $0.id == id }) else { return }
-        selectedDeviceID = id
-        applications = []; selectedApplicationID = nil
-        observations = []; notes = ""
-        errorMessage = nil
-        statusMessage = "Appareil sélectionné. La lecture des apps nécessite un accès CoreDevice actif."
+        guard devices.contains(where: { $0.id == id }), selectedDeviceID != id else { return }
+        request(.device(id))
     }
 
     func scanApplications() {
-        guard let device = selectedDevice else { errorMessage = ExplorerError.noDevice.localizedDescription; return }
+        guard selectedDevice != nil else {
+            errorMessage = ExplorerError.noDevice.localizedDescription
+            return
+        }
         guard !isBusy else { return }
+        request(.applicationScan)
+    }
+
+    private func startApplicationScan() {
+        guard let device = selectedDevice, !isBusy else { return }
         isBusy = true
         errorMessage = nil
         applications = []; selectedApplicationID = nil
@@ -84,9 +155,9 @@ final class ExplorerModel: ObservableObject {
     }
 
     func selectApplication(_ id: String) {
-        selectedApplicationID = id
-        observations = []
-        notes = ""
+        guard selectedApplicationID != id else { return }
+        guard manualApplication?.id == id || applications.contains(where: { $0.id == id }) else { return }
+        request(.application(id))
     }
 
     func createManualApp() {
@@ -95,12 +166,7 @@ final class ExplorerModel: ObservableObject {
             errorMessage = "Saisissez un nom valide (120 caractères maximum)."
             return
         }
-        let app = InstalledApplication(id: "manual-" + UUID().uuidString, name: name, version: "inconnue", origin: "Saisie manuelle")
-        manualApplication = app
-        selectedApplicationID = app.id
-        observations = []; notes = ""
-        errorMessage = nil
-        statusMessage = "Fiche manuelle créée. Le logiciel n'a pas été inventorié par CoreDevice."
+        request(.manualApp(name))
     }
 
     func addObservation() { observations.append(Observation()) }
@@ -129,6 +195,10 @@ final class ExplorerModel: ObservableObject {
 
     func openManualDraft() {
         guard !isBusy else { return }
+        request(.openDraft)
+    }
+
+    private func presentOpenDraftPanel() {
         let panel = NSOpenPanel()
         panel.title = "Reprendre un brouillon local"
         panel.message = "Choisissez un brouillon créé par Mobile Explorer. Il remplacera la fiche en cours."
