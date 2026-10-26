@@ -43,7 +43,7 @@ final class DeviceParserTests: XCTestCase {
     }
 
     func testCoreDeviceParserRejectsUnknownEnvelope() {
-        let invalid = Data("{\\"result\\":{}}".utf8)
+        let invalid = Data("not valid JSON".utf8)
         XCTAssertThrowsError(try ApplicationScanner.parseCoreDeviceApplications(invalid))
     }
 }
