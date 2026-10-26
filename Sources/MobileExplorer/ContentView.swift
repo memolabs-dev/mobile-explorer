@@ -53,19 +53,20 @@ struct ContentView: View {
                     Label("Lire les applications", systemImage: "square.grid.2x2")
                         .frame(maxWidth: .infinity)
                 }
+                .accessibilityIdentifier("device.read-apps")
                 .buttonStyle(.borderedProminent).tint(Design.ink)
                 .disabled(model.selectedDevice == nil || model.isBusy)
                 .padding(.horizontal, 14).padding(.bottom, 12)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("FICHE SANS IPHONE").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                    TextField("Application autorisée", text: $model.manualAppName)
+                    TextField("Application autorisée", text: $model.manualAppName).accessibilityIdentifier("manual.app-name")
                     Button { model.createManualApp() } label: {
                         Label("Créer une fiche manuelle", systemImage: "square.and.pencil")
                     }
-                    .disabled(model.manualAppName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(model.manualAppName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).accessibilityIdentifier("manual.create")
                     Button { model.openManualDraft() } label: {
                         Label("Reprendre un brouillon", systemImage: "folder")
-                    }.buttonStyle(.borderless)
+                    }.accessibilityIdentifier("draft.open").buttonStyle(.borderless)
                     .help("Ouvrir un brouillon JSON local, sans synchronisation")
                     if let app = model.manualApplication {
                         Button { model.selectApplication(app.id) } label: {
@@ -182,14 +183,14 @@ struct ContentView: View {
                     if app.origin == "Saisie manuelle" {
                         Button { model.saveManualDraft() } label: {
                             Label("Brouillon", systemImage: "square.and.arrow.down")
-                        }
+                        }.accessibilityIdentifier("draft.save")
                     }
                     Button { model.exportReport() } label: {
                         Label("Markdown", systemImage: "doc.text")
-                    }
+                    }.accessibilityIdentifier("export.markdown")
                     Button { model.exportJSONLines() } label: {
                         Label("JSON Lines", systemImage: "curlybraces")
-                    }.disabled(model.observations.isEmpty)
+                    }.disabled(model.observations.isEmpty).accessibilityIdentifier("export.jsonl")
                 }.buttonStyle(.borderedProminent).tint(Design.ink)
             }
             Divider()
@@ -198,10 +199,11 @@ struct ContentView: View {
                 .font(.body).frame(minHeight: 100).padding(8)
                 .overlay(RoundedRectangle(cornerRadius: 9).stroke(.gray.opacity(0.25)))
                 .accessibilityLabel("Notes générales, sans données privées")
+                .accessibilityIdentifier("observation.general-notes")
             HStack {
                 Text("Parcours observés").font(.headline)
                 Spacer()
-                Button { model.addObservation() } label: { Label("Ajouter un parcours", systemImage: "plus") }
+                Button { model.addObservation() } label: { Label("Ajouter un parcours", systemImage: "plus") }.accessibilityIdentifier("observation.add")
             }
             ForEach($model.observations) { $observation in
                 VStack(alignment: .leading, spacing: 10) {
