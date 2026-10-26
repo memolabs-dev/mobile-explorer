@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/memo-labs/contracts/observation-v0.1.schema.json",
+  "title": "Rebuild Radar Evidence Observation v0.1",
+  "description": "Proposed cross-project evidence format. Not yet accepted by the production Radar backend.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "subject", "capability", "claimStatus", "collectedAt", "source"],
+  "properties": {
+    "schemaVersion": {"const": "0.1"},
+    "subject": {"type": "object", "additionalProperties": false, "required": ["name", "kind"], "properties": {
+      "name": {"type": "string", "minLength": 1},
+      "kind": {"enum": ["proprietary-original", "open-source-project", "authorized-test-app"]},
+      "repositoryUrl": {"type": "string", "format": "uri"},
+      "bundleId": {"type": "string"},
+      "version": {"type": "string"}
+    }},
+    "capability": {"type": "string", "minLength": 1},
+    "claimStatus": {"enum": ["unknown", "declared", "documented", "partial", "verified"]},
+    "collectedAt": {"type": "string", "format": "date-time"},
+    "source": {"type": "object", "additionalProperties": false, "required": ["type", "reference"], "properties": {
+      "type": {"enum": ["repository", "release-note", "manual-observation", "automated-test"]},
+      "reference": {"type": "string", "minLength": 1},
+      "reviewer": {"type": "string"},
+      "testRunId": {"type": "string"}
+    }},
+    "environment": {"type": "object", "additionalProperties": {"type": "string"}},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "artifacts": {"type": "array", "items": {"type": "string", "format": "uri"}}
+  },
+  "allOf": [{"if": {"properties": {"claimStatus": {"const": "verified"}}}, "then": {"properties": {"source": {"properties": {"type": {"const": "automated-test"}}, "required": ["type", "reference", "testRunId"]}}}}]
+}
