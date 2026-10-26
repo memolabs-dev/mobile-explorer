@@ -29,15 +29,14 @@ struct ContentView: View {
                 } else {
                     ForEach(model.devices) { device in
                         Button {
-                            model.selectedDeviceID = device.id
-                            model.applications = []
-                            model.selectedApplicationID = nil
+                            model.selectDevice(device.id)
                         } label: {
                             HStack(spacing: 11) {
                                 Image(systemName: "iphone.gen3").font(.title3)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(device.name).font(.system(size: 13, weight: .bold))
                                     Text("\(device.model) · \(device.state)").font(.system(size: 11)).foregroundStyle(.secondary)
+                                    Text(device.connectionHint).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(3)
                                 }
                                 Spacer(minLength: 0)
                             }.padding(12).background(model.selectedDeviceID == device.id ? Design.lime.opacity(0.42) : Color.clear, in: RoundedRectangle(cornerRadius: 10))

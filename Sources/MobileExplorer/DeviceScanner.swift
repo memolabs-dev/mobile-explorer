@@ -56,15 +56,39 @@ struct DeviceScanner {
             guard platform.lowercased() == "ios" || model.lowercased().hasPrefix("iphone") else { return nil }
             let udid = hw["udid"] as? String ?? row["identifier"] as? String ?? ""
             guard !udid.isEmpty else { return nil }
+            let pairing = conn["pairingState"] as? String
+            let tunnel = conn["tunnelState"] as? String
             return ConnectedDevice(
                 id: row["identifier"] as? String ?? udid,
                 udid: udid,
                 name: info["name"] as? String ?? model,
                 model: model,
                 platform: platform.isEmpty ? "iOS" : platform,
-                state: conn["tunnelState"] as? String ?? "unknown"
+                state: tunnel ?? "unknown",
+                connectionHint: connectionHint(
+                    pairingState: pairing,
+                    tunnelState: tunnel,
+                    developerModeStatus: info["developerModeStatus"] as? String,
+                    ddiServicesAvailable: info["ddiServicesAvailable"] as? Bool
+                )
             )
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    static func connectionHint(pairingState: String?, tunnelState: String?, developerModeStatus: String?, ddiServicesAvailable: Bool?) -> String {
+        if let pairingState, pairingState != "paired" {
+            return "Jumelage non confirmé : déverrouiller l’iPhone et accepter « Faire confiance »."
+        }
+        if developerModeStatus == "disabled" {
+            return "Mode développeur désactivé : vérifier Réglages → Confidentialité et sécurité."
+        }
+        if tunnelState == "disconnected" {
+            return "Tunnel CoreDevice inactif : essayer un câble USB, déverrouiller l’iPhone et vérifier Xcode."
+        }
+        if ddiServicesAvailable == false {
+            return "Services développeur momentanément indisponibles ; l’inventaire peut échouer."
+        }
+        return "Appareil détecté : la lecture dépend encore des autorisations iOS."
     }
 }
 

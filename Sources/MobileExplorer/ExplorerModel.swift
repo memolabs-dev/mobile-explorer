@@ -31,11 +31,24 @@ final class ExplorerModel: ObservableObject {
                 devices = data
                 if let selectedDeviceID, !data.contains(where: { $0.id == selectedDeviceID }) {
                     self.selectedDeviceID = nil; applications = []; selectedApplicationID = nil
+                    observations = []; notes = ""
                 }
                 statusMessage = data.isEmpty ? "Aucun iPhone trouvé. Vérifiez le câble, la confiance et Xcode." : "\(data.count) iPhone(s) détecté(s)."
-            case .failure(let error): errorMessage = error.localizedDescription
+            case .failure(let error):
+                devices = []; selectedDeviceID = nil; applications = []; selectedApplicationID = nil
+                observations = []; notes = ""
+                errorMessage = error.localizedDescription
             }
         }
+    }
+
+    func selectDevice(_ id: ConnectedDevice.ID) {
+        guard devices.contains(where: { $0.id == id }) else { return }
+        selectedDeviceID = id
+        applications = []; selectedApplicationID = nil
+        observations = []; notes = ""
+        errorMessage = nil
+        statusMessage = "Appareil sélectionné. La lecture des apps nécessite un accès CoreDevice actif."
     }
 
     func scanApplications() {
@@ -43,6 +56,8 @@ final class ExplorerModel: ObservableObject {
         guard !isBusy else { return }
         isBusy = true
         errorMessage = nil
+        applications = []; selectedApplicationID = nil
+        observations = []; notes = ""
         statusMessage = "Lecture du catalogue local, sans extraction des binaires…"
         Task {
             let result = await Task.detached(priority: .userInitiated) { () -> Result<[InstalledApplication], Error> in
