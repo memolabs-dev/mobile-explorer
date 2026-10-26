@@ -24,9 +24,11 @@ final class DeviceParserTests: XCTestCase {
           "connectionProperties":{"pairingState":"paired","tunnelState":"disconnected","transportType":"localNetwork"}}]}}
         """.data(using: .utf8)!
         let device = try XCTUnwrap(DeviceScanner.parseDevices(json).first)
-        XCTAssertTrue(device.connectionHint.contains("Tunnel CoreDevice inactif"))
+        XCTAssertTrue(device.connectionHint.contains("s’ouvrir à la demande"))
         XCTAssertFalse(device.connectionHint.contains("secret-device-id"))
         XCTAssertEqual(device.state, "disconnected")
+        XCTAssertTrue(DeviceScanner.connectionHint(pairingState: "paired", tunnelState: "disconnected", transportType: "localNetwork", developerModeStatus: "enabled", ddiServicesAvailable: false).contains("Jumelé en réseau"))
+        XCTAssertTrue(DeviceScanner.connectionHint(pairingState: "paired", tunnelState: "disconnected", transportType: "wired", developerModeStatus: "enabled", ddiServicesAvailable: false).contains("USB"))
         XCTAssertTrue(DeviceScanner.connectionHint(pairingState: "unpaired", tunnelState: nil, developerModeStatus: nil, ddiServicesAvailable: nil).contains("Jumelage"))
         XCTAssertTrue(DeviceScanner.connectionHint(pairingState: "paired", tunnelState: "connected", developerModeStatus: "disabled", ddiServicesAvailable: true).contains("Mode développeur"))
     }
