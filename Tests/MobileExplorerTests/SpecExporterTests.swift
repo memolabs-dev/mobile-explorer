@@ -47,6 +47,31 @@ final class SpecExporterTests: XCTestCase {
         XCTAssertFalse(output.contains("verified"))
     }
 
+    func testExportFixtureForRadarInterop() throws {
+        let app = InstalledApplication(id: "manual-test", name: "Demo autorisée", version: "inconnue", origin: "Saisie manuelle")
+        let actions = [Observation(screenName: "Écran accueil", expectedAction: "Toucher menu", observedResult: "Le menu apparaît", notes: "Aucune donnée personnelle")]
+        let output = try AppSpecExporter.jsonLines(
+            for: app,
+            observations: actions,
+            generalNotes: "Test interopérabilité",
+            date: Date(timeIntervalSince1970: 1793008800)
+        )
+        let lines = output.split(separator: "\n")
+        XCTAssertEqual(lines.count, 1)
+        let data = try XCTUnwrap(lines.first?.data(using: .utf8))
+        let record = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(record["schemaVersion"] as? String, "0.1")
+        XCTAssertEqual(record["claimStatus"] as? String, "unknown")
+        XCTAssertEqual(record["capability"] as? String, "Écran accueil")
+        let source = try XCTUnwrap(record["source"] as? [String: Any])
+        XCTAssertEqual(source["type"] as? String, "manual-observation")
+
+        // Used by Radar's opt-in interop test; no writes in ordinary CI.
+        if let path = ProcessInfo.processInfo.environment["INTEROP_FIXTURE_FILE"], !path.isEmpty {
+            try output.write(to: URL(fileURLWithPath: path), atomically: true, encoding: .utf8)
+        }
+    }
+
     func testJSONLinesRefusesEmptyObservations() {
         let app = InstalledApplication(id: "com.example.demo", name: "Demo", version: "1", origin: "test")
         XCTAssertThrowsError(try AppSpecExporter.jsonLines(for: app, observations: [], generalNotes: ""))
