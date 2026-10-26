@@ -17,3 +17,7 @@ Les tests couvrent les permissions dès l'écriture, le remplacement d'un ancien
 ## Confidentialité des exports Markdown / JSONL
 
 Les exports réutilisent le même mécanisme que les brouillons : création d'un fichier privé POSIX 0600 **avant** écriture, remplacement atomique et nettoyage des temporaires en cas d'échec, dans la limite de 8 Mio par export. Les fichiers restent **non chiffrés** et ne sont jamais envoyés automatiquement. Les anciennes copies déjà exportées ne sont pas modifiées.
+
+## Prévention des pertes accidentelles
+
+Si la fiche active contient des notes ou des parcours, changer d'application, créer une autre fiche, lire une nouvelle liste d'applications ou ouvrir un autre brouillon demande une confirmation explicite. **Annuler** conserve les informations en mémoire. Recliquer sur la même application ne supprime plus les notes. En cas de disparition de l'iPhone lors d'une actualisation, les observations déjà saisies restent disponibles pour sauvegarde ou export.

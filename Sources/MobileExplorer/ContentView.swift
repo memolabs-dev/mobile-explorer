@@ -73,7 +73,7 @@ struct ContentView: View {
                         }.buttonStyle(.borderless)
                     }
                 }.textFieldStyle(.roundedBorder).padding(.horizontal, 14).padding(.bottom, 12)
-                List(model.applications, selection: $model.selectedApplicationID) { app in
+                List(model.applications) { app in
                     Button { model.selectApplication(app.id) } label: {
                         HStack(spacing: 10) {
                             RoundedRectangle(cornerRadius: 9).fill(Design.lime.opacity(0.5))
@@ -116,6 +116,23 @@ struct ContentView: View {
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 920, minHeight: 610)
         .onAppear { model.refreshDevices() }
+        .confirmationDialog(
+            "Remplacer les observations en cours ?",
+            isPresented: Binding(
+                get: { model.pendingNavigation != nil },
+                set: { if !$0 { model.cancelPendingNavigation() } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Abandonner les observations", role: .destructive) {
+                model.discardAndContinue()
+            }
+            Button("Annuler", role: .cancel) {
+                model.cancelPendingNavigation()
+            }
+        } message: {
+            Text("Un changement d'application, d'appareil ou de fiche peut remplacer les notes visibles. Sauvegardez ou exportez-les avant de confirmer.")
+        }
     }
 
     private var brand: some View {
