@@ -63,6 +63,10 @@ struct ContentView: View {
                         Label("Créer une fiche manuelle", systemImage: "square.and.pencil")
                     }
                     .disabled(model.manualAppName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button { model.openManualDraft() } label: {
+                        Label("Reprendre un brouillon", systemImage: "folder")
+                    }.buttonStyle(.borderless)
+                    .help("Ouvrir un brouillon JSON local, sans synchronisation")
                     if let app = model.manualApplication {
                         Button { model.selectApplication(app.id) } label: {
                             Text(app.name + " · saisie manuelle")
@@ -158,6 +162,11 @@ struct ContentView: View {
                 }
                 Spacer()
                 HStack {
+                    if app.origin == "Saisie manuelle" {
+                        Button { model.saveManualDraft() } label: {
+                            Label("Brouillon", systemImage: "square.and.arrow.down")
+                        }
+                    }
                     Button { model.exportReport() } label: {
                         Label("Markdown", systemImage: "doc.text")
                     }

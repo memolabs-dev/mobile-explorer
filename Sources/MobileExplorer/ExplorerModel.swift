@@ -105,6 +105,57 @@ final class ExplorerModel: ObservableObject {
 
     func addObservation() { observations.append(Observation()) }
 
+    func saveManualDraft() {
+        guard let app = selectedApplication, app.origin == "Saisie manuelle" else {
+            errorMessage = "Sélectionnez une fiche manuelle pour sauvegarder un brouillon."
+            return
+        }
+        let panel = NSSavePanel()
+        panel.title = "Sauvegarder un brouillon local"
+        panel.message = "Brouillon JSON non chiffré : choisissez un dossier privé, sans notes sensibles."
+        panel.nameFieldStringValue = "mobile-explorer-draft.json"
+        panel.canCreateDirectories = true
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                let data = try ManualDraftCodec.encode(app: app, observations: observations, notes: notes)
+                try data.write(to: url, options: .atomic)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+                statusMessage = "Brouillon enregistré localement. Gardez ce fichier privé."
+                errorMessage = nil
+            } catch {
+                errorMessage = "Sauvegarde non confirmée : \(error.localizedDescription)"
+            }
+        }
+    }
+
+    func openManualDraft() {
+        guard !isBusy else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Reprendre un brouillon local"
+        panel.message = "Choisissez un brouillon créé par Mobile Explorer. Il remplacera la fiche en cours."
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                guard size <= ManualDraftCodec.maximumBytes else {
+                    throw ExplorerError.invalidData("Brouillon trop volumineux.")
+                }
+                let draft = try ManualDraftCodec.decode(Data(contentsOf: url))
+                let restored = InstalledApplication(id: "manual-" + UUID().uuidString, name: draft.applicationName, version: "inconnue", origin: "Saisie manuelle")
+                manualAppName = draft.applicationName
+                manualApplication = restored
+                selectedApplicationID = restored.id
+                observations = ManualDraftCodec.restoredObservations(draft)
+                notes = draft.generalNotes
+                errorMessage = nil
+                statusMessage = "Brouillon repris localement : observations manuelles non vérifiées."
+            } catch {
+                errorMessage = "Brouillon non chargé : \(error.localizedDescription)"
+            }
+        }
+    }
+
     func exportJSONLines() {
         guard let app = selectedApplication else { return }
         guard !observations.isEmpty else {
