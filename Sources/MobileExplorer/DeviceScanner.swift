@@ -73,15 +73,46 @@ struct ApplicationScanner {
     init(executor: any CommandExecuting = ProcessExecutor()) { self.executor = executor }
 
     func listApplications(on device: ConnectedDevice) throws -> [InstalledApplication] {
-        // Read-only listing by Apple's app installation service via libimobiledevice.
-        // Not all iOS versions allow enumeration; failure must remain visible to users.
+        // Prefer Apple's CoreDevice interface. It lists metadata only and does not access
+        // app data containers. The host/device must grant a CoreDevice usage assertion.
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent("mobile-explorer-apps-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: output) }
+        let result = try? executor.run("/usr/bin/xcrun", arguments: [
+            "devicectl", "device", "info", "apps", "--device", device.id,
+            "--include-default-apps", "--json-output", output.path
+        ])
+        if result?.status == 0, let data = try? Data(contentsOf: output) {
+            return try Self.parseCoreDeviceApplications(data)
+        }
+
+        // On unsupported or temporarily unavailable devices, use the optional
+        // libimobiledevice installation service. Never fabricate an app inventory.
         let locations = ["/opt/homebrew/bin/ideviceinstaller", "/usr/local/bin/ideviceinstaller"]
         guard let executable = locations.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
-            throw ExplorerError.toolMissing("ideviceinstaller")
+            throw ExplorerError.commandFailed("CoreDevice n'a pas pu lire les applications (iPhone verrouillé, non prêt ou accès refusé). Le repli ideviceinstaller est absent : installez-le si nécessaire, ou vérifiez Xcode, le jumelage et le mode développeur.")
         }
-        let result = try executor.run(executable, arguments: ["-u", device.udid, "list", "--xml"])
-        guard result.status == 0 else { throw ExplorerError.commandFailed("ideviceinstaller a retourné \(result.status)") }
-        return try Self.parseApplications(result.stdout)
+        let fallback = try executor.run(executable, arguments: ["-u", device.udid, "list", "--xml"])
+        guard fallback.status == 0 else {
+            throw ExplorerError.commandFailed("CoreDevice indisponible ; ideviceinstaller a échoué (code \(fallback.status)). Vérifiez les permissions et la compatibilité iOS.")
+        }
+        return try Self.parseApplications(fallback.stdout)
+    }
+
+    static func parseCoreDeviceApplications(_ data: Data) throws -> [InstalledApplication] {
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let result = root["result"] as? [String: Any],
+              let entries = result["apps"] as? [[String: Any]] else {
+            throw ExplorerError.invalidData("Structure JSON CoreDevice inattendue")
+        }
+        return entries.compactMap { record -> InstalledApplication? in
+            guard let bundleId = record["bundleIdentifier"] as? String, !bundleId.isEmpty else { return nil }
+            return InstalledApplication(
+                id: bundleId,
+                name: record["name"] as? String ?? bundleId,
+                version: record["version"] as? String ?? record["bundleVersion"] as? String ?? "—",
+                origin: "iPhone · CoreDevice (Xcode)"
+            )
+        }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     static func parseApplications(_ data: Data) throws -> [InstalledApplication] {
