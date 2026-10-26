@@ -16,3 +16,7 @@
 5. Ne marquer « validé sur iPhone » qu'après un inventaire réel et une observation reproduite.
 
 Ce diagnostic ne prouve pas que `ideviceinstaller` fonctionnera : c'est uniquement une alternative facultative, soumise aux droits et versions iOS. Aucune modification de configuration système ou de l'iPhone n'a été effectuée pendant le diagnostic.
+
+## Correction de l'interprétation
+
+\`tunnelState: disconnected\` peut décrire un tunnel inactif ouvert à la demande, **même lorsque le téléphone est utilisable**. Des implémentations publiques et les échanges Apple montrent qu'il ne faut pas assimiler ce champ seul à une panne. L'erreur 4016 est le constat pertinent de l'échec de la commande ; sa cause précise n'est pas établie sans diagnostic supplémentaire dans Xcode Device Hub, avec l'appareil physiquement accessible. Ne pas redémarrer les services système et ne pas réinitialiser le jumelage sans examen.

@@ -68,6 +68,7 @@ struct DeviceScanner {
                 connectionHint: connectionHint(
                     pairingState: pairing,
                     tunnelState: tunnel,
+                    transportType: conn["transportType"] as? String,
                     developerModeStatus: info["developerModeStatus"] as? String,
                     ddiServicesAvailable: info["ddiServicesAvailable"] as? Bool
                 )
@@ -75,7 +76,7 @@ struct DeviceScanner {
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
-    static func connectionHint(pairingState: String?, tunnelState: String?, developerModeStatus: String?, ddiServicesAvailable: Bool?) -> String {
+    static func connectionHint(pairingState: String?, tunnelState: String?, transportType: String? = nil, developerModeStatus: String?, ddiServicesAvailable: Bool?) -> String {
         if let pairingState, pairingState != "paired" {
             return "Jumelage non confirmé : déverrouiller l’iPhone et accepter « Faire confiance »."
         }
@@ -83,10 +84,17 @@ struct DeviceScanner {
             return "Mode développeur désactivé : vérifier Réglages → Confidentialité et sécurité."
         }
         if tunnelState == "disconnected" {
-            return "Tunnel CoreDevice inactif : essayer un câble USB, déverrouiller l’iPhone et vérifier Xcode."
+            // CoreDevice opens tunnels on demand. Idle does not prove unusability.
+            if transportType == "localNetwork" {
+                return "Jumelé en réseau : le tunnel peut s’ouvrir à la demande. Essayez la lecture des apps ; en cas d’échec, testez l’USB."
+            }
+            if transportType == "wired" {
+                return "Connecté par USB : le tunnel CoreDevice peut s’ouvrir à la demande. Essayez la lecture des apps."
+            }
+            return "Jumelé, tunnel CoreDevice au repos. Tester la lecture avant de conclure à une panne."
         }
         if ddiServicesAvailable == false {
-            return "Services développeur momentanément indisponibles ; l’inventaire peut échouer."
+            return "Services développeur signalés indisponibles : la lecture reste à tester."
         }
         return "Appareil détecté : la lecture dépend encore des autorisations iOS."
     }
