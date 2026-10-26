@@ -157,8 +157,13 @@ struct ContentView: View {
                     Text("\(app.id) · v\(app.version)").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button { model.exportReport() } label: {
-                    Label("Exporter la spec", systemImage: "square.and.arrow.up")
+                HStack {
+                    Button { model.exportReport() } label: {
+                        Label("Markdown", systemImage: "doc.text")
+                    }
+                    Button { model.exportJSONLines() } label: {
+                        Label("JSON Lines", systemImage: "curlybraces")
+                    }.disabled(model.observations.isEmpty)
                 }.buttonStyle(.borderedProminent).tint(Design.ink)
             }
             Divider()
