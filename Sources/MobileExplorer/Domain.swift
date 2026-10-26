@@ -7,6 +7,7 @@ struct ConnectedDevice: Identifiable, Hashable {
     let model: String
     let platform: String
     let state: String
+    let connectionHint: String
 
     var maskedIdentifier: String {
         guard udid.count > 8 else { return "••••" }

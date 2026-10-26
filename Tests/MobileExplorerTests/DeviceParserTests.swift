@@ -16,6 +16,21 @@ final class DeviceParserTests: XCTestCase {
         XCTAssertFalse(devices.first!.maskedIdentifier.contains("1234ffff"))
     }
 
+    func testConnectionHintDistinguishesAccessStatesWithoutIdentifiers() throws {
+        let json = """
+        {"result":{"devices":[{"identifier":"internal-device-id",
+          "hardwareProperties":{"udid":"secret-device-id","platform":"iOS","productType":"iPhone Test"},
+          "deviceProperties":{"name":"Device","developerModeStatus":"enabled","ddiServicesAvailable":false},
+          "connectionProperties":{"pairingState":"paired","tunnelState":"disconnected","transportType":"localNetwork"}}]}}
+        """.data(using: .utf8)!
+        let device = try XCTUnwrap(DeviceScanner.parseDevices(json).first)
+        XCTAssertTrue(device.connectionHint.contains("Tunnel CoreDevice inactif"))
+        XCTAssertFalse(device.connectionHint.contains("secret-device-id"))
+        XCTAssertEqual(device.state, "disconnected")
+        XCTAssertTrue(DeviceScanner.connectionHint(pairingState: "unpaired", tunnelState: nil, developerModeStatus: nil, ddiServicesAvailable: nil).contains("Jumelage"))
+        XCTAssertTrue(DeviceScanner.connectionHint(pairingState: "paired", tunnelState: "connected", developerModeStatus: "disabled", ddiServicesAvailable: true).contains("Mode développeur"))
+    }
+
     func testParsesAppsPlist() throws {
         let list: [[String:String]] = [
             ["CFBundleIdentifier":"com.example.test","CFBundleDisplayName":"Demo App","CFBundleShortVersionString":"2.1"],
