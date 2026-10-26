@@ -3,8 +3,8 @@ import Darwin
 
 /// Explicit user-selected files only. Never persists an iPhone identifier or uploads notes.
 enum ManualDraftStorage {
-    static func save(_ data: Data, to destination: URL) throws {
-        guard destination.isFileURL, data.count <= ManualDraftCodec.maximumBytes else {
+    static func save(_ data: Data, to destination: URL, maximumBytes: Int = ManualDraftCodec.maximumBytes) throws {
+        guard destination.isFileURL, data.count <= maximumBytes else {
             throw ExplorerError.invalidData("Destination ou taille du brouillon invalide.")
         }
         // Create with mode 0600 BEFORE writing private notes, not afterwards.

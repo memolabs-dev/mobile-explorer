@@ -165,7 +165,7 @@ final class ExplorerModel: ObservableObject {
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 let data = try AppSpecExporter.jsonLines(for: app, observations: observations, generalNotes: notes)
-                try data.write(to: url, atomically: true, encoding: .utf8)
+                try ManualDraftStorage.save(Data(data.utf8), to: url, maximumBytes: 8_388_608)
                 statusMessage = "Observations JSON Lines exportées localement (non vérifiées)."
             } catch { errorMessage = error.localizedDescription }
         }
@@ -181,7 +181,7 @@ final class ExplorerModel: ObservableObject {
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 let result = AppSpecExporter.markdown(for: app, observations: observations, generalNotes: notes)
-                try result.write(to: url, atomically: true, encoding: .utf8)
+                try ManualDraftStorage.save(Data(result.utf8), to: url, maximumBytes: 8_388_608)
                 statusMessage = "Rapport sauvegardé localement."
             } catch { errorMessage = error.localizedDescription }
         }

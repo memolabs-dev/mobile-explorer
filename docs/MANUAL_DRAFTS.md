@@ -13,3 +13,7 @@ Une fiche manuelle peut être enregistrée et réouverte explicitement depuis Mo
 ## Tests de confidentialité et de récupération
 
 Les tests couvrent les permissions dès l'écriture, le remplacement d'un ancien fichier trop permissif, une lecture bornée à 1 Mio et le nettoyage des fichiers temporaires si la finalisation échoue. Les permissions POSIX protègent contre les autres comptes locaux ; elles ne constituent pas un chiffrement et ne couvrent pas automatiquement les sauvegardes cloud d'un dossier synchronisé.
+
+## Confidentialité des exports Markdown / JSONL
+
+Les exports réutilisent le même mécanisme que les brouillons : création d'un fichier privé POSIX 0600 **avant** écriture, remplacement atomique et nettoyage des temporaires en cas d'échec, dans la limite de 8 Mio par export. Les fichiers restent **non chiffrés** et ne sont jamais envoyés automatiquement. Les anciennes copies déjà exportées ne sont pas modifiées.
