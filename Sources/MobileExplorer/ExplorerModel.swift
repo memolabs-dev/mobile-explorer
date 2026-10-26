@@ -118,8 +118,7 @@ final class ExplorerModel: ObservableObject {
         if panel.runModal() == .OK, let url = panel.url {
             do {
                 let data = try ManualDraftCodec.encode(app: app, observations: observations, notes: notes)
-                try data.write(to: url, options: .atomic)
-                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+                try ManualDraftStorage.save(data, to: url)
                 statusMessage = "Brouillon enregistré localement. Gardez ce fichier privé."
                 errorMessage = nil
             } catch {
@@ -137,11 +136,7 @@ final class ExplorerModel: ObservableObject {
         panel.canChooseDirectories = false
         if panel.runModal() == .OK, let url = panel.url {
             do {
-                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-                guard size <= ManualDraftCodec.maximumBytes else {
-                    throw ExplorerError.invalidData("Brouillon trop volumineux.")
-                }
-                let draft = try ManualDraftCodec.decode(Data(contentsOf: url))
+                let draft = try ManualDraftStorage.load(from: url)
                 let restored = InstalledApplication(id: "manual-" + UUID().uuidString, name: draft.applicationName, version: "inconnue", origin: "Saisie manuelle")
                 manualAppName = draft.applicationName
                 manualApplication = restored
