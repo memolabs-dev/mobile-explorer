@@ -145,18 +145,6 @@ private struct ExplorerSidebar: View {
                         )
                     }
 
-                    TextField("Nom de l’application", text: $model.manualAppName)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("manual.app-name")
-
-                    Button {
-                        model.createManualApp()
-                    } label: {
-                        Label("Créer une fiche", systemImage: "plus")
-                    }
-                    .disabled(model.manualAppName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .accessibilityIdentifier("manual.create")
-
                     Button {
                         model.openManualDraft()
                     } label: {
@@ -168,6 +156,25 @@ private struct ExplorerSidebar: View {
             }
             .listStyle(.sidebar)
 
+            Divider()
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Nouvelle fiche")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+                TextField("Nom de l’application", text: $model.manualAppName)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("manual.app-name")
+                Button {
+                    model.createManualApp()
+                } label: {
+                    Label("Créer une fiche", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(model.manualAppName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("manual.create")
+            }
+            .padding(14)
             Divider()
             HStack(spacing: 7) {
                 Image(systemName: "lock.shield")
