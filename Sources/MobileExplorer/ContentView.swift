@@ -1,121 +1,36 @@
 import SwiftUI
 
-private enum Design {
-    static let ink = Color(red: 0.09, green: 0.14, blue: 0.12)
-    static let lime = Color(red: 0.77, green: 0.95, blue: 0.49)
-    static let canvas = Color(red: 0.96, green: 0.965, blue: 0.95)
-}
-
+// Native macOS navigation, typography and system materials. The neutral content
+// area is intentionally separate from the sidebar / toolbar control layer.
 struct ContentView: View {
     @StateObject private var model = ExplorerModel()
 
     var body: some View {
         NavigationSplitView {
-            VStack(alignment: .leading, spacing: 0) {
-                brand
-                HStack {
-                    Text("APPAREILS").font(.system(size: 10, weight: .bold)).tracking(1.6).foregroundStyle(.secondary)
-                    Spacer()
-                    Button { model.refreshDevices() } label: { Image(systemName: "arrow.clockwise") }
-                        .buttonStyle(.borderless).help("Actualiser")
-                }.padding(.horizontal, 19).padding(.top, 28).padding(.bottom, 12)
-                if model.devices.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Image(systemName: "iphone.gen3").font(.system(size: 32)).foregroundStyle(.secondary)
-                        Text("Aucun iPhone connecté").font(.system(size: 13, weight: .semibold))
-                        Text("Branchez-le au Mac, déverrouillez-le puis validez la confiance.")
-                            .font(.system(size: 12)).foregroundStyle(.secondary)
-                    }.padding(20)
-                } else {
-                    ForEach(model.devices) { device in
-                        Button {
-                            model.selectDevice(device.id)
-                        } label: {
-                            HStack(spacing: 11) {
-                                Image(systemName: "iphone.gen3").font(.title3)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(device.name).font(.system(size: 13, weight: .bold))
-                                    Text("\(device.model) · \(device.state)").font(.system(size: 11)).foregroundStyle(.secondary)
-                                    Text(device.connectionHint).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(3)
-                                }
-                                Spacer(minLength: 0)
-                            }.padding(12).background(model.selectedDeviceID == device.id ? Design.lime.opacity(0.42) : Color.clear, in: RoundedRectangle(cornerRadius: 10))
-                        }.buttonStyle(.plain).padding(.horizontal, 8)
-                    }
-                }
-                Divider().padding(.vertical, 19)
-                HStack {
-                    Text("APPLICATIONS").font(.system(size: 10, weight: .bold)).tracking(1.6).foregroundStyle(.secondary)
-                    Spacer()
-                    Text("\(model.applications.count)").font(.caption).foregroundStyle(.secondary)
-                }.padding(.horizontal, 19).padding(.bottom, 10)
-                Button { model.scanApplications() } label: {
-                    Label("Lire les applications", systemImage: "square.grid.2x2")
-                        .frame(maxWidth: .infinity)
-                }
-                .accessibilityIdentifier("device.read-apps")
-                .buttonStyle(.borderedProminent).tint(Design.ink)
-                .disabled(model.selectedDevice == nil || model.isBusy)
-                .padding(.horizontal, 14).padding(.bottom, 12)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("FICHE SANS IPHONE").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-                    TextField("Application autorisée", text: $model.manualAppName).accessibilityIdentifier("manual.app-name")
-                    Button { model.createManualApp() } label: {
-                        Label("Créer une fiche manuelle", systemImage: "square.and.pencil")
-                    }
-                    .disabled(model.manualAppName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty).accessibilityIdentifier("manual.create")
-                    Button { model.openManualDraft() } label: {
-                        Label("Reprendre un brouillon", systemImage: "folder")
-                    }.accessibilityIdentifier("draft.open").buttonStyle(.borderless)
-                    .help("Ouvrir un brouillon JSON local, sans synchronisation")
-                    if let app = model.manualApplication {
-                        Button { model.selectApplication(app.id) } label: {
-                            Text(app.name + " · saisie manuelle")
-                        }.buttonStyle(.borderless)
-                    }
-                }.textFieldStyle(.roundedBorder).padding(.horizontal, 14).padding(.bottom, 12)
-                List(model.applications) { app in
-                    Button { model.selectApplication(app.id) } label: {
-                        HStack(spacing: 10) {
-                            RoundedRectangle(cornerRadius: 9).fill(Design.lime.opacity(0.5))
-                                .frame(width: 34, height: 34)
-                                .overlay(Text(String(app.name.prefix(1))).fontWeight(.bold))
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(app.name).font(.system(size: 12, weight: .semibold))
-                                Text(app.id).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-                            }
-                        }
-                    }.buttonStyle(.plain).listRowBackground(model.selectedApplicationID == app.id ? Design.lime.opacity(0.2) : Color.clear)
-                }.listStyle(.plain)
-                Spacer(minLength: 0)
-                Text("LOCAL · AUCUNE DONNÉE TRANSMISE")
-                    .font(.system(size: 9, weight: .medium)).tracking(1)
-                    .foregroundStyle(.secondary).padding(18)
-            }.background(Design.canvas)
+            ExplorerSidebar(model: model)
+                .navigationSplitViewColumnWidth(min: 245, ideal: 280, max: 360)
         } detail: {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    HStack {
-                        Text("OBSERVATOIRE MOBILE / PROTOTYPE").font(.system(size: 10, weight: .bold)).tracking(1.6).foregroundStyle(.secondary)
-                        Spacer()
-                        Label("LECTURE SEULE", systemImage: "lock.shield")
-                            .font(.system(size: 10, weight: .bold)).foregroundStyle(.green)
-                    }
-                    if let app = model.selectedApplication {
-                        appWorkspace(app)
-                    } else { emptyState }
-                    if let error = model.errorMessage {
-                        Label(error, systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(.orange)
-                    }
-                    HStack(spacing: 8) {
-                        if model.isBusy { ProgressView().controlSize(.small) }
-                        Text(model.statusMessage).font(.caption).foregroundStyle(.secondary)
-                    }
-                }.padding(36).frame(maxWidth: 890, alignment: .leading)
-            }.background(Color.white)
+            ExplorerDetail(model: model)
         }
-        .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 920, minHeight: 610)
+        .navigationTitle("Mobile Explorer")
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    model.refreshDevices()
+                } label: {
+                    Label("Actualiser les appareils", systemImage: "arrow.clockwise")
+                }
+                .help("Rechercher les iPhone connectés")
+
+                Button {
+                    model.openManualDraft()
+                } label: {
+                    Label("Ouvrir un brouillon", systemImage: "folder")
+                }
+                .help("Ouvrir un fichier local")
+            }
+        }
+        .frame(minWidth: 820, minHeight: 580)
         .onAppear { model.refreshDevices() }
         .confirmationDialog(
             "Remplacer les observations en cours ?",
@@ -132,95 +47,387 @@ struct ContentView: View {
                 model.cancelPendingNavigation()
             }
         } message: {
-            Text("Un changement d'application, d'appareil ou de fiche peut remplacer les notes visibles. Sauvegardez ou exportez-les avant de confirmer.")
+            Text("Sauvegardez ou exportez les notes actuelles avant de changer de fiche.")
         }
     }
+}
 
-    private var brand: some View {
-        HStack(spacing: 10) {
-            RoundedRectangle(cornerRadius: 9).fill(Design.ink).frame(width: 35, height: 35)
-                .overlay(Image(systemName: "circle.hexagongrid.fill").foregroundStyle(Design.lime))
-            VStack(alignment: .leading, spacing: 0) {
-                Text("mobile explorer").font(.system(size: 16, weight: .bold)).tracking(-0.6)
-                Text("MEMO LABS / EXPERIMENTAL").font(.system(size: 8, weight: .bold)).tracking(1.2).foregroundStyle(.secondary)
-            }
-        }.padding(.horizontal, 18).padding(.top, 25)
-    }
+private struct ExplorerSidebar: View {
+    @ObservedObject var model: ExplorerModel
 
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Comprendre une app,\nsans son code source.")
-                .font(.system(size: 46, weight: .bold)).tracking(-2.3)
-            Text("Connectez un iPhone ou créez une fiche manuelle pour documenter une application autorisée, même sans inventaire disponible.")
-                .font(.system(size: 15)).foregroundStyle(.secondary).lineSpacing(6).frame(maxWidth: 560, alignment: .leading)
-            HStack(spacing: 14) {
-                capability("01", "Appareil détecté")
-                capability("02", "Inventaire des apps")
-                capability("03", "Fiche de parcours")
-            }.padding(.top, 25)
-            Text("Ce prototype ne déchiffre pas les applications, ne lit pas leurs données privées et ne pilote pas automatiquement les interfaces.")
-                .font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 18)
-        }.padding(.top, 70)
-    }
-
-    private func capability(_ number: String, _ title: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(number).font(.system(size: 12, weight: .heavy)).foregroundStyle(.green)
-            Text(title).font(.system(size: 12, weight: .semibold))
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(15).background(Design.canvas, in: RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func appWorkspace(_ app: InstalledApplication) -> some View {
-        VStack(alignment: .leading, spacing: 22) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("FICHE D'OBSERVATION").font(.system(size: 10, weight: .bold)).tracking(1.4).foregroundStyle(.secondary)
-                    Text(app.name).font(.system(size: 38, weight: .bold)).tracking(-1.7)
-                    Text("\(app.id) · v\(app.version)").font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                HStack {
-                    if app.origin == "Saisie manuelle" {
-                        Button { model.saveManualDraft() } label: {
-                            Label("Brouillon", systemImage: "square.and.arrow.down")
-                        }.accessibilityIdentifier("draft.save")
+    var body: some View {
+        VStack(spacing: 0) {
+            List {
+                Section("Appareils") {
+                    if model.devices.isEmpty {
+                        Label("Aucun iPhone connecté", systemImage: "iphone.slash")
+                            .foregroundStyle(.secondary)
+                            .font(.callout)
+                            .accessibilityIdentifier("device.empty")
+                    } else {
+                        ForEach(model.devices) { device in
+                            Button {
+                                model.selectDevice(device.id)
+                            } label: {
+                                HStack(spacing: 9) {
+                                    Image(systemName: "iphone.gen3")
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 20)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(device.name).lineLimit(1)
+                                        Text(device.connectionHint)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(
+                                model.selectedDeviceID == device.id
+                                    ? Color.accentColor.opacity(0.12) : Color.clear
+                            )
+                        }
                     }
-                    Button { model.exportReport() } label: {
-                        Label("Markdown", systemImage: "doc.text")
-                    }.accessibilityIdentifier("export.markdown")
-                    Button { model.exportJSONLines() } label: {
-                        Label("JSON Lines", systemImage: "curlybraces")
-                    }.disabled(model.observations.isEmpty).accessibilityIdentifier("export.jsonl")
-                }.buttonStyle(.borderedProminent).tint(Design.ink)
+
+                    Button {
+                        model.scanApplications()
+                    } label: {
+                        Label("Lire les applications", systemImage: "square.grid.2x2")
+                    }
+                    .disabled(model.selectedDevice == nil || model.isBusy)
+                    .accessibilityIdentifier("device.read-apps")
+                }
+
+                Section("Applications (\(model.applications.count))") {
+                    ForEach(model.applications) { app in
+                        Button {
+                            model.selectApplication(app.id)
+                        } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: "app")
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 20)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(app.name).lineLimit(1)
+                                    Text(app.id)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(
+                            model.selectedApplicationID == app.id
+                                ? Color.accentColor.opacity(0.12) : Color.clear
+                        )
+                    }
+                }
+
+                Section("Fiches manuelles") {
+                    if let manual = model.manualApplication {
+                        Button {
+                            model.selectApplication(manual.id)
+                        } label: {
+                            Label(manual.name, systemImage: "doc.text")
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(
+                            model.selectedApplicationID == manual.id
+                                ? Color.accentColor.opacity(0.12) : Color.clear
+                        )
+                    }
+
+                    Button {
+                        model.openManualDraft()
+                    } label: {
+                        Label("Reprendre un brouillon", systemImage: "folder")
+                    }
+                    .accessibilityIdentifier("draft.open")
+                    .help("Ouvrir un fichier JSON local")
+                }
             }
+            .listStyle(.sidebar)
+
             Divider()
-            Text("Notes générales").font(.headline)
-            TextEditor(text: $model.notes)
-                .font(.body).frame(minHeight: 100).padding(8)
-                .overlay(RoundedRectangle(cornerRadius: 9).stroke(.gray.opacity(0.25)))
-                .accessibilityLabel("Notes générales, sans données privées")
-                .accessibilityIdentifier("observation.general-notes")
-            HStack {
-                Text("Parcours observés").font(.headline)
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Nouvelle fiche")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+                TextField("Nom de l’application", text: $model.manualAppName)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("manual.app-name")
+                Button {
+                    model.createManualApp()
+                } label: {
+                    Label("Créer une fiche", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(model.manualAppName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityIdentifier("manual.create")
+            }
+            .padding(14)
+            Divider()
+            HStack(spacing: 7) {
+                Image(systemName: "lock.shield")
+                Text("Données conservées sur ce Mac")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 11)
+        }
+    }
+}
+
+private struct ExplorerDetail: View {
+    @ObservedObject var model: ExplorerModel
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                Group {
+                    if let app = model.selectedApplication {
+                        ObservationWorkspace(model: model, app: app)
+                    } else {
+                        ExplorerWelcomeView()
+                    }
+                }
+                .frame(maxWidth: 880, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .padding(.horizontal, 30)
+                .padding(.vertical, 30)
+            }
+            .background(Color(nsColor: .textBackgroundColor))
+
+            Divider()
+            HStack(spacing: 8) {
+                if model.isBusy { ProgressView().controlSize(.small) }
+                if model.errorMessage != nil {
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                } else {
+                    Image(systemName: "checkmark.shield")
+                        .foregroundStyle(.secondary)
+                }
+                Text(model.errorMessage ?? model.statusMessage)
+                    .lineLimit(2)
+                Spacer(minLength: 10)
+                Text("Local")
+                    .foregroundStyle(.tertiary)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
+            .background(.bar)
+        }
+    }
+}
+
+private struct ExplorerWelcomeView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Image(systemName: "iphone.gen3.radiowaves.left.and.right")
+                .font(.system(size: 40, weight: .light))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Bienvenue dans Mobile Explorer")
+                    .font(.title)
+                    .fontWeight(.semibold)
+                Text("Documentez le fonctionnement d’une application autorisée depuis votre Mac.")
+                    .foregroundStyle(.secondary)
+                    .font(.body)
+            }
+
+            VStack(alignment: .leading, spacing: 14) {
+                Label("Connectez et autorisez votre iPhone pour afficher les applications.", systemImage: "cable.connector")
+                Label("Ou créez une fiche manuelle dans la barre latérale.", systemImage: "square.and.pencil")
+                Label("Consignez les écrans et exportez vos observations localement.", systemImage: "doc.text")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .padding(.top, 6)
+
+            Divider().frame(maxWidth: 540)
+            Text("L’application consulte des métadonnées accessibles par CoreDevice. Elle ne lit pas les données privées des applications et ne navigue pas automatiquement dans leurs interfaces.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: 560, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 50)
+    }
+}
+
+private struct ObservationWorkspace: View {
+    @ObservedObject var model: ExplorerModel
+    let app: InstalledApplication
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("FICHE D'OBSERVATION")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                    Text(app.name)
+                        .font(.title)
+                        .fontWeight(.semibold)
+                        .textSelection(.enabled)
+                    HStack(spacing: 8) {
+                        Label(app.origin == "Saisie manuelle" ? "Observation manuelle" : "Inventaire iPhone",
+                              systemImage: app.origin == "Saisie manuelle" ? "square.and.pencil" : "iphone")
+                        Text("·")
+                        Text("Non vérifiée")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    Text(app.id + " · " + app.version)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .textSelection(.enabled)
+                }
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 9) {
+                if app.origin == "Saisie manuelle" {
+                    Button {
+                        model.saveManualDraft()
+                    } label: {
+                        Label("Enregistrer le brouillon", systemImage: "square.and.arrow.down")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("draft.save")
+                }
+                Menu {
+                    Button {
+                        model.exportReport()
+                    } label: {
+                        Label("Exporter en Markdown", systemImage: "doc.text")
+                    }
+                    .accessibilityIdentifier("export.markdown")
+
+                    Button {
+                        model.exportJSONLines()
+                    } label: {
+                        Label("Exporter en JSON Lines", systemImage: "curlybraces")
+                    }
+                    .disabled(model.observations.isEmpty)
+                    .accessibilityIdentifier("export.jsonl")
+                } label: {
+                    Label("Exporter", systemImage: "square.and.arrow.up")
+                }
+                .menuStyle(.borderlessButton)
                 Spacer()
-                Button { model.addObservation() } label: { Label("Ajouter un parcours", systemImage: "plus") }.accessibilityIdentifier("observation.add")
             }
-            ForEach($model.observations) { $observation in
-                VStack(alignment: .leading, spacing: 10) {
-                    TextField("Écran / parcours (ex. Connexion)", text: $observation.screenName)
-                        .font(.system(size: 15, weight: .bold))
-                    TextField("Action effectuée", text: $observation.expectedAction)
-                    TextField("Résultat observé", text: $observation.observedResult)
-                    TextField("Limites et remarques", text: $observation.notes)
-                }.textFieldStyle(.roundedBorder).padding(16)
-                    .background(Design.canvas, in: RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Notes générales")
+                    .font(.headline)
+                TextEditor(text: $model.notes)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 120, maxHeight: 200)
+                    .padding(10)
+                    .background(Color(nsColor: .controlBackgroundColor),
+                                in: RoundedRectangle(cornerRadius: 9))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9)
+                            .strokeBorder(.separator.opacity(0.35))
+                    )
+                    .accessibilityLabel("Notes générales, sans données privées")
+                    .accessibilityIdentifier("observation.general-notes")
+                Text("Évitez les identifiants personnels et autres informations confidentielles.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            if model.observations.isEmpty {
-                Text("Aucun parcours enregistré. Ajoutez le premier écran que vous avez observé manuellement.")
-                    .font(.caption).foregroundStyle(.secondary).padding(22)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Design.canvas, in: RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Parcours observés")
+                        .font(.headline)
+                    Text("\(model.observations.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button {
+                        model.addObservation()
+                    } label: {
+                        Label("Ajouter un parcours", systemImage: "plus")
+                    }
+                    .accessibilityIdentifier("observation.add")
+                }
+
+                if model.observations.isEmpty {
+                    ContentUnavailableView(
+                        "Aucun parcours",
+                        systemImage: "list.bullet.rectangle",
+                        description: Text("Ajoutez un écran ou une action que vous avez observés.")
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                } else {
+                    ForEach($model.observations) { $observation in
+                        ObservationEditorRow(observation: $observation)
+                    }
+                }
             }
         }
+    }
+}
+
+private struct ObservationEditorRow: View {
+    @Binding var observation: Observation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            TextField("Écran / parcours (ex. Connexion)", text: $observation.screenName)
+                .font(.headline)
+                .accessibilityIdentifier("observation.screen")
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 12) {
+                GridRow {
+                    Text("Action")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 75, alignment: .leading)
+                    TextField("Action effectuée", text: $observation.expectedAction)
+                        .accessibilityIdentifier("observation.action")
+                }
+                GridRow {
+                    Text("Résultat")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 75, alignment: .leading)
+                    TextField("Résultat observé", text: $observation.observedResult)
+                        .accessibilityIdentifier("observation.result")
+                }
+                GridRow {
+                    Text("Limites")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 75, alignment: .leading)
+                    TextField("Limites et remarques", text: $observation.notes)
+                        .accessibilityIdentifier("observation.limitations")
+                }
+            }
+            .textFieldStyle(.roundedBorder)
+        }
+        .padding(17)
+        .background(Color(nsColor: .controlBackgroundColor),
+                    in: RoundedRectangle(cornerRadius: 10))
     }
 }
